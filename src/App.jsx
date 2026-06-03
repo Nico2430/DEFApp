@@ -450,16 +450,81 @@ function Pagos({ pagos, saldos, reload }) {
   const [monto, setMonto] = useState("");
   const [metodo, setMetodo] = useState("Efectivo");
   const saldoPedido = saldos.find(s => String(s.pedido_id) === String(pedidoId));
-  async function save(e) { e.preventDefault(); const valor = Number(monto); if (saldoPedido && valor > Number(saldoPedido.saldo)) return alert("El pago no puede superar el saldo pendiente."); const r = await supabase.from("pagos").insert({ pedido_id: pedidoId, fecha, monto: valor, metodo }); if (r.error) alert(r.error.message); setMonto(""); reload(); }
-  return <Section title="Pagos"><form onSubmit={save} className="grid md:grid-cols-5 gap-3 mb-5"><Select required value={pedidoId} onChange={e => setPedidoId(e.target.value)}><option value="">Seleccionar pedido</option>{saldos.map(s => <option key={s.pedido_id} value={s.pedido_id}>Pedido #{s.pedido_id} - {cleanText(s.razon_social)} - Saldo {money(s.saldo)}</option>)}</Select><Input type="date" value={fecha} onChange={e => setFecha(e.target.value)} /><Input type="number" step="0.01" min="0" placeholder="Monto" value={monto} onChange={e => setMonto(e.target.value)} /><Select value={metodo} onChange={e => setMetodo(e.target.value)}><option>Efectivo</option><option>Transferencia</option></Select><Button>Cargar pago</Button></form>{saldoPedido && <div className="rounded-xl bg-[#fff9d6] border border-[#f2c94c] p-3 mb-4">Saldo actual del pedido: <b>{money(saldoPedido.saldo)}</b></div>}<Table rows={pagos.map(p => ({ ...p, cliente: p.pedidos?.clientes?.razon_social, pedido: p.pedido_id, monto: money(p.monto) }))} cols={["fecha", "pedido", "cliente", "monto", "metodo"]} /></Section>;
+  const saldosOrdenados = [...saldos].sort((a, b) => Number(b.pedido_id || 0) - Number(a.pedido_id || 0));
+
+  async function save(e) {
+    e.preventDefault();
+    const valor = Number(monto);
+    if (saldoPedido && valor > Number(saldoPedido.saldo)) return alert("El pago no puede superar el saldo pendiente.");
+    const r = await supabase.from("pagos").insert({ pedido_id: pedidoId, fecha, monto: valor, metodo });
+    if (r.error) alert(r.error.message);
+    setMonto("");
+    reload();
+  }
+
+  async function del(id) {
+    if (confirm("Eliminar pago? El saldo del pedido se recalculara automaticamente.")) {
+      const r = await supabase.from("pagos").delete().eq("id", id);
+      if (r.error) alert(r.error.message);
+      reload();
+    }
+  }
+
+  const rows = pagos.map(p => ({
+    ...p,
+    cliente: cleanText(p.pedidos?.clientes?.razon_social || ""),
+    pedido: p.pedido_id,
+    monto: money(p.monto)
+  }));
+
+  return <Section title="Pagos">
+    <form onSubmit={save} className="grid md:grid-cols-5 gap-3 mb-5">
+      <Select required value={pedidoId} onChange={e => setPedidoId(e.target.value)}>
+        <option value="">Seleccionar pedido</option>
+        {saldosOrdenados.map(s => <option key={s.pedido_id} value={s.pedido_id}>Pedido #{s.pedido_id} - {cleanText(s.razon_social)} - Saldo {money(s.saldo)}</option>)}
+      </Select>
+      <Input type="date" value={fecha} onChange={e => setFecha(e.target.value)} />
+      <Input type="number" step="0.01" min="0" placeholder="Monto" value={monto} onChange={e => setMonto(e.target.value)} />
+      <Select value={metodo} onChange={e => setMetodo(e.target.value)}><option>Efectivo</option><option>Transferencia</option></Select>
+      <Button>Cargar pago</Button>
+    </form>
+    {saldoPedido && <div className="rounded-xl bg-[#fff9d6] border border-[#f2c94c] p-3 mb-4">Saldo actual del pedido: <b>{money(saldoPedido.saldo)}</b></div>}
+    <Table rows={rows} cols={["fecha", "pedido", "cliente", "monto", "metodo"]} onDelete={del} />
+  </Section>;
 }
 
 function Saldos({ saldos, pagos }) {
   const [q, setQ] = useState("");
-  const list = saldos
-    .filter(s => cleanText(`${s.nro_cliente} ${cleanText(s.razon_social)}`).toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => cleanText(a.razon_social).localeCompare(cleanText(b.razon_social), "es", { numeric: true }));
-  const saldoTotal = list.reduce((acc, s) => acc + Number(s.saldo || 0), 0);
+  const [sort, setSort] = useState({ key: "cliente", dir: "asc" });
+  const filtered = saldos.filter(s => cleanText(`${s.nro_cliente} ${s.razon_social}`).toLowerCase().includes(q.toLowerCase()));
+  const saldoTotal = filtered.reduce((acc, s) => acc + Number(s.saldo || 0), 0);
+
+  function setSortColumn(key) {
+    setSort(current => current.key === key
+      ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
+      : { key, dir: "asc" }
+    );
+  }
+
+  function sortValue(row, key) {
+    if (key === "cliente") return cleanText(row.razon_social || "");
+    if (key === "pedido") return Number(row.pedido_id || 0);
+    if (["total", "pagado", "saldo"].includes(key)) return Number(row[key] || 0);
+    if (key === "pagos") return pagos.filter(p => p.pedido_id === row.pedido_id).map(p => `${p.fecha} ${p.monto} ${p.metodo}`).join(" ");
+    return row[key] || "";
+  }
+
+  const list = [...filtered].sort((a, b) => {
+    const av = sortValue(a, sort.key);
+    const bv = sortValue(b, sort.key);
+    const result = typeof av === "number" && typeof bv === "number"
+      ? av - bv
+      : cleanText(av).localeCompare(cleanText(bv), "es", { numeric: true });
+    return sort.dir === "asc" ? result : -result;
+  });
+
+  const sortMark = (key) => sort.key === key ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
+  const headerClass = "py-1 pr-3 cursor-pointer select-none hover:text-[#8a5a00]";
 
   return <Section title="Consulta de saldos">
     <Input placeholder="Filtrar cliente" value={q} onChange={e => setQ(e.target.value)} />
@@ -467,18 +532,24 @@ function Saldos({ saldos, pagos }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left border-b-2 border-[#c7a43a]">
-            <th>Cliente</th><th>Pedido</th><th>Fecha</th><th>Total</th><th>Pagado</th><th>Saldo</th><th>Pagos</th>
+            <th className={headerClass} onClick={() => setSortColumn("cliente")}>Cliente{sortMark("cliente")}</th>
+            <th className={headerClass} onClick={() => setSortColumn("pedido")}>Pedido{sortMark("pedido")}</th>
+            <th className={headerClass} onClick={() => setSortColumn("fecha")}>Fecha{sortMark("fecha")}</th>
+            <th className={headerClass} onClick={() => setSortColumn("total")}>Total{sortMark("total")}</th>
+            <th className={headerClass} onClick={() => setSortColumn("pagado")}>Pagado{sortMark("pagado")}</th>
+            <th className={headerClass} onClick={() => setSortColumn("saldo")}>Saldo{sortMark("saldo")}</th>
+            <th className={headerClass} onClick={() => setSortColumn("pagos")}>Pagos{sortMark("pagos")}</th>
           </tr>
         </thead>
         <tbody>
           {list.map(s => <tr key={s.pedido_id} className="border-b-2 border-[#e1d4a6] align-top">
-            <td>#{s.nro_cliente} · {cleanText(s.razon_social)}</td>
+            <td>{cleanText(s.razon_social)} - #{s.nro_cliente}</td>
             <td>#{s.pedido_id}</td>
             <td>{formatDate(s.fecha)}</td>
             <td>{money(s.total)}</td>
             <td>{money(s.pagado)}</td>
             <td className="font-bold">{money(s.saldo)}</td>
-            <td>{pagos.filter(p => p.pedido_id === s.pedido_id).map(p => <div key={p.id}>{formatDate(p.fecha)} · {money(p.monto)} · {p.metodo}</div>)}</td>
+            <td>{pagos.filter(p => p.pedido_id === s.pedido_id).map(p => <div key={p.id}>{formatDate(p.fecha)} - {money(p.monto)} - {p.metodo}</div>)}</td>
           </tr>)}
         </tbody>
       </table>
