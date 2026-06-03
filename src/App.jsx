@@ -339,12 +339,56 @@ function Stock({ stock, reload }) {
   const [form, setForm] = useState(empty);
   const [edit, setEdit] = useState(null);
   const [q, setQ] = useState("");
-  const rows = stock.filter(a => cleanText(`${a.nro_abertura} ${cleanText(a.modelo)} ${cleanText(a.medida)} ${cleanText(a.madera)} ${cleanText(a.mano)}`).toLowerCase().includes(q.toLowerCase()));
-  async function save(e) { e.preventDefault(); const r = edit ? await supabase.from("stock_aberturas").update(form).eq("id", edit) : await supabase.from("stock_aberturas").insert(form); if (r.error) alert(r.error.message); setForm(empty); setEdit(null); reload(); }
-  async function del(id) { if (confirm("Eliminar abertura?")) { const r = await supabase.from("stock_aberturas").delete().eq("id", id); if (r.error) alert(r.error.message); reload(); } }
-  return <Section title="Stock de Aberturas"><form onSubmit={save} className="grid md:grid-cols-5 gap-3 mb-5"><Input required placeholder="Modelo" value={form.modelo} onChange={e => setForm({ ...form, modelo: e.target.value })} /><Input required placeholder="Medida" value={form.medida} onChange={e => setForm({ ...form, medida: e.target.value })} /><Input required placeholder="Madera" value={form.madera} onChange={e => setForm({ ...form, madera: e.target.value })} /><Input required placeholder="Mano" value={form.mano} onChange={e => setForm({ ...form, mano: e.target.value })} /><Button>{edit ? "Guardar" : "Crear abertura"}</Button></form><Input placeholder="Filtrar stock" value={q} onChange={e => setQ(e.target.value)} /><Table rows={rows} cols={["nro_abertura", "modelo", "medida", "madera", "mano"]} onEdit={r => { setEdit(r.id); setForm({ modelo: r.modelo, medida: r.medida, madera: r.madera, mano: r.mano }); }} onDelete={del} /></Section>;
-}
+  const rows = stock.filter(a => cleanText(`${a.nro_abertura} ${a.modelo} ${a.medida} ${a.madera} ${a.mano}`).toLowerCase().includes(q.toLowerCase()));
 
+  async function save(e) {
+    e.preventDefault();
+    const r = edit
+      ? await supabase.from("stock_aberturas").update(form).eq("id", edit)
+      : await supabase.from("stock_aberturas").insert(form);
+    if (r.error) alert(r.error.message);
+    setForm(empty);
+    setEdit(null);
+    reload();
+  }
+
+  async function del(id) {
+    if (confirm("Eliminar abertura?")) {
+      const r = await supabase.from("stock_aberturas").delete().eq("id", id);
+      if (r.error) alert(r.error.message);
+      reload();
+    }
+  }
+
+  function editStock(r) {
+    setEdit(r.id);
+    setForm({
+      modelo: cleanText(r.modelo || ""),
+      medida: cleanText(r.medida || ""),
+      madera: cleanText(r.madera || ""),
+      mano: cleanText(r.mano || "")
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setForm(empty);
+    setEdit(null);
+  }
+
+  return <Section title="Stock de Aberturas">
+    <form onSubmit={save} className="grid md:grid-cols-5 gap-3 mb-3">
+      <Input required placeholder="Modelo" value={form.modelo} onChange={e => setForm({ ...form, modelo: e.target.value })} />
+      <Input required placeholder="Medida" value={form.medida} onChange={e => setForm({ ...form, medida: e.target.value })} />
+      <Input required placeholder="Madera" value={form.madera} onChange={e => setForm({ ...form, madera: e.target.value })} />
+      <Input required placeholder="Mano" value={form.mano} onChange={e => setForm({ ...form, mano: e.target.value })} />
+      <Button>{edit ? "Guardar cambios" : "Crear abertura"}</Button>
+    </form>
+    {edit && <div className="mb-5 flex justify-end"><Button type="button" className="bg-slate-600 hover:bg-slate-700" onClick={cancelEdit}>Cancelar edicion</Button></div>}
+    <Input placeholder="Filtrar stock" value={q} onChange={e => setQ(e.target.value)} />
+    <Table rows={rows} cols={["nro_abertura", "modelo", "medida", "madera", "mano"]} onEdit={editStock} onDelete={del} />
+  </Section>;
+}
 function Pedidos({ clientes, stock, pedidos, reload }) {
   const [clienteId, setClienteId] = useState("");
   const [fecha, setFecha] = useState(today());
