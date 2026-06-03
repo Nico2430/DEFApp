@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+release/
+*.asar
+*.blockmap
+*.exe
+
+# Environment files with real credentials
+.env
+.env.*
+!.env.example
+
+# Logs and local caches
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vite/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

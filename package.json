@@ -1,0 +1,56 @@
+{
+  "name": "defapp",
+  "version": "1.0.0",
+  "private": true,
+  "productName": "DEFApp",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "vite build",
+    "dist": "npm run build && electron-builder",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "lucide-react": "latest"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest",
+    "concurrently": "latest",
+    "wait-on": "latest",
+    "tailwindcss": "3.4.17",
+    "postcss": "8.4.49",
+    "autoprefixer": "10.4.20",
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest"
+  },
+  "build": {
+    "appId": "com.defaberturas.defapp",
+    "productName": "DEFApp",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "public/logo-def.ico",
+      "public/logo-def.png",
+      "public/logo-emdaber.png"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/logo-def.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "description": "DEFApp - Gestión integral de aberturas de madera",
+  "author": "DEF Aberturas"
+}
