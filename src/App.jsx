@@ -412,7 +412,9 @@ function Pagos({ pagos, saldos, reload }) {
 
 function Saldos({ saldos, pagos }) {
   const [q, setQ] = useState("");
-  const list = saldos.filter(s => cleanText(`${s.nro_cliente} ${cleanText(s.razon_social)}`).toLowerCase().includes(q.toLowerCase()));
+  const list = saldos
+    .filter(s => cleanText(`${s.nro_cliente} ${cleanText(s.razon_social)}`).toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => cleanText(a.razon_social).localeCompare(cleanText(b.razon_social), "es", { numeric: true }));
   const saldoTotal = list.reduce((acc, s) => acc + Number(s.saldo || 0), 0);
 
   return <Section title="Consulta de saldos">
