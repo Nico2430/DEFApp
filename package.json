@@ -37,8 +37,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "TU_USUARIO",
-        "repo": "NOMBRE_DEL_REPO",
+        "owner": "Nico2430",
+        "repo": "DEFApp",
         "releaseType": "release"
       }
     ],
