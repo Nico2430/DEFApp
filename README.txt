@@ -33,3 +33,15 @@ Para generar instalador:
 npm run dist
 
 El instalador queda en la carpeta release.
+
+Actualizaciones automaticas desde GitHub:
+1. En package.json, reemplazar build.publish.owner y build.publish.repo por el usuario y repositorio reales de GitHub.
+2. Cada actualizacion debe subir la version en package.json, por ejemplo de 1.0.0 a 1.0.1.
+3. Crear un token de GitHub con permisos para publicar releases y usarlo como variable GH_TOKEN.
+4. Publicar la nueva version con:
+   npm run publish:github
+
+La app revisa actualizaciones al abrirse. Solo muestra aviso cuando GitHub Releases tiene una version mas nueva. Si aceptas, descarga la actualizacion y luego pregunta si queres reiniciar e instalarla.
+
+Nota:
+El auto-update de Electron funciona mejor con el instalador NSIS. El .exe portable se puede generar para distribucion manual, pero la actualizacion automatica completa esta pensada para la version instalada.

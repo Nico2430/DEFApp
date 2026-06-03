@@ -10,28 +10,38 @@
     "dist": "npm run build && electron-builder",
     "dist:portable": "npm run build && electron-builder --win portable",
     "dist:installer": "npm run build && electron-builder --win nsis",
+    "publish:github": "npm run build && electron-builder --win nsis --publish always",
     "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "latest",
+    "electron-updater": "^6.8.3",
+    "lucide-react": "latest",
     "react": "latest",
-    "react-dom": "latest",
-    "lucide-react": "latest"
+    "react-dom": "latest"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "latest",
+    "autoprefixer": "10.4.20",
+    "concurrently": "latest",
     "electron": "latest",
     "electron-builder": "latest",
-    "concurrently": "latest",
-    "wait-on": "latest",
-    "tailwindcss": "3.4.17",
     "postcss": "8.4.49",
-    "autoprefixer": "10.4.20",
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest"
+    "tailwindcss": "3.4.17",
+    "vite": "latest",
+    "wait-on": "latest"
   },
   "build": {
     "appId": "com.defaberturas.defapp",
     "productName": "DEFApp",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "TU_USUARIO",
+        "repo": "NOMBRE_DEL_REPO",
+        "releaseType": "release"
+      }
+    ],
     "directories": {
       "output": "release"
     },
