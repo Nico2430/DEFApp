@@ -29,7 +29,29 @@ const formatDate = (date) => {
   const [y, m, d] = String(date).slice(0, 10).split("-");
   return y && m && d ? `${d}-${m}-${y}` : String(date);
 };
-const escapeHtml = (value = "") => String(value)
+const cleanText = (value = "") => {
+  let text = String(value);
+  if (/[ÃÂâ]/.test(text)) {
+    try {
+      text = decodeURIComponent(escape(text));
+    } catch {
+      // Keep the original text and apply the targeted replacements below.
+    }
+  }
+  return text
+    .replaceAll("Ã¡", "á")
+    .replaceAll("Ã©", "é")
+    .replaceAll("Ã­", "í")
+    .replaceAll("Ã³", "ó")
+    .replaceAll("Ãº", "ú")
+    .replaceAll("Ã±", "ñ")
+    .replaceAll("Ã‘", "Ñ")
+    .replaceAll("Â°", "°")
+    .replaceAll("Âº", "º")
+    .replaceAll("Â·", "·")
+    .replaceAll("â€“", "-");
+};
+const escapeHtml = (value = "") => cleanText(value)
   .replaceAll("&", "&amp;")
   .replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;")
@@ -258,6 +280,15 @@ export default function DEFApp() {
     await supabase.auth.signOut();
   }
 
+  async function checkAppUpdates() {
+    if (!window.defapp?.checkForUpdates) {
+      alert("La actualizacion de la app solo funciona desde la version instalable.");
+      return;
+    }
+    const result = await window.defapp.checkForUpdates();
+    if (result?.error) alert(result.error);
+  }
+
   if (authLoading) {
     return <main className="min-h-screen bg-[#fff4b8] text-[#2a1208] p-6 flex items-center justify-center">Cargando sesion...</main>;
   }
@@ -274,6 +305,7 @@ export default function DEFApp() {
         <div className="flex flex-col items-start gap-2 md:items-end">
           <span className="text-sm text-[#6a2b12]">{session.user.email}</span>
           <div className="flex gap-2">
+            <Button type="button" className="bg-[#8a5a00] hover:bg-[#a66a00]" onClick={checkAppUpdates}>Actualizar App</Button>
             <Button onClick={loadAll} disabled={loading}>{loading ? "Actualizando..." : "Actualizar"}</Button>
             <Button type="button" className="bg-slate-600 hover:bg-slate-700" onClick={logout}>Salir</Button>
           </div>
@@ -296,7 +328,7 @@ function Clientes({ clientes, reload }) {
   const [form, setForm] = useState(empty);
   const [edit, setEdit] = useState(null);
   const [q, setQ] = useState("");
-  const rows = clientes.filter(c => `${c.nro_cliente} ${c.razon_social}`.toLowerCase().includes(q.toLowerCase()));
+  const rows = clientes.filter(c => cleanText(`${c.nro_cliente} ${cleanText(c.razon_social)}`).toLowerCase().includes(q.toLowerCase()));
   async function save(e) { e.preventDefault(); const r = edit ? await supabase.from("clientes").update(form).eq("id", edit) : await supabase.from("clientes").insert(form); if (r.error) alert(r.error.message); setForm(empty); setEdit(null); reload(); }
   async function del(id) { if (confirm("Eliminar cliente?")) { const r = await supabase.from("clientes").delete().eq("id", id); if (r.error) alert(r.error.message); reload(); } }
   return <Section title="Clientes"><form onSubmit={save} className="grid md:grid-cols-3 gap-3 mb-5"><Input required placeholder="Razon Social" value={form.razon_social} onChange={e => setForm({ ...form, razon_social: e.target.value })} /><Input required placeholder="Direccion" value={form.direccion} onChange={e => setForm({ ...form, direccion: e.target.value })} /><Input required placeholder="Localidad" value={form.localidad} onChange={e => setForm({ ...form, localidad: e.target.value })} /><Input required placeholder="Telefono" value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} /><Input placeholder="CUIT/CUIL opcional" value={form.cuit_cuil || ""} onChange={e => setForm({ ...form, cuit_cuil: e.target.value })} /><Button>{edit ? "Guardar cambios" : "Crear cliente"}</Button></form><Input placeholder="Filtrar por nombre o Nro cliente" value={q} onChange={e => setQ(e.target.value)} /><Table rows={rows} cols={["nro_cliente", "razon_social", "direccion", "localidad", "telefono", "cuit_cuil"]} onEdit={r => { setEdit(r.id); setForm({ razon_social: r.razon_social, direccion: r.direccion, localidad: r.localidad, telefono: r.telefono, cuit_cuil: r.cuit_cuil || "" }); }} onDelete={del} /></Section>;
@@ -307,7 +339,7 @@ function Stock({ stock, reload }) {
   const [form, setForm] = useState(empty);
   const [edit, setEdit] = useState(null);
   const [q, setQ] = useState("");
-  const rows = stock.filter(a => `${a.nro_abertura} ${a.modelo} ${a.medida} ${a.madera} ${a.mano}`.toLowerCase().includes(q.toLowerCase()));
+  const rows = stock.filter(a => cleanText(`${a.nro_abertura} ${cleanText(a.modelo)} ${cleanText(a.medida)} ${cleanText(a.madera)} ${cleanText(a.mano)}`).toLowerCase().includes(q.toLowerCase()));
   async function save(e) { e.preventDefault(); const r = edit ? await supabase.from("stock_aberturas").update(form).eq("id", edit) : await supabase.from("stock_aberturas").insert(form); if (r.error) alert(r.error.message); setForm(empty); setEdit(null); reload(); }
   async function del(id) { if (confirm("Eliminar abertura?")) { const r = await supabase.from("stock_aberturas").delete().eq("id", id); if (r.error) alert(r.error.message); reload(); } }
   return <Section title="Stock de Aberturas"><form onSubmit={save} className="grid md:grid-cols-5 gap-3 mb-5"><Input required placeholder="Modelo" value={form.modelo} onChange={e => setForm({ ...form, modelo: e.target.value })} /><Input required placeholder="Medida" value={form.medida} onChange={e => setForm({ ...form, medida: e.target.value })} /><Input required placeholder="Madera" value={form.madera} onChange={e => setForm({ ...form, madera: e.target.value })} /><Input required placeholder="Mano" value={form.mano} onChange={e => setForm({ ...form, mano: e.target.value })} /><Button>{edit ? "Guardar" : "Crear abertura"}</Button></form><Input placeholder="Filtrar stock" value={q} onChange={e => setQ(e.target.value)} /><Table rows={rows} cols={["nro_abertura", "modelo", "medida", "madera", "mano"]} onEdit={r => { setEdit(r.id); setForm({ modelo: r.modelo, medida: r.medida, madera: r.madera, mano: r.mano }); }} onDelete={del} /></Section>;
@@ -325,7 +357,7 @@ function Pedidos({ clientes, stock, pedidos, reload }) {
   const [precio, setPrecio] = useState(0);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("nro_cliente");
-  const clientesFiltrados = useMemo(() => [...clientes].filter(c => `${c.nro_cliente} ${c.razon_social}`.toLowerCase().includes(q.toLowerCase())).sort((a, b) => String(a[sort]).localeCompare(String(b[sort]), "es", { numeric: true })), [clientes, q, sort]);
+  const clientesFiltrados = useMemo(() => [...clientes].filter(c => cleanText(`${c.nro_cliente} ${cleanText(c.razon_social)}`).toLowerCase().includes(q.toLowerCase())).sort((a, b) => String(a[sort]).localeCompare(String(b[sort]), "es", { numeric: true })), [clientes, q, sort]);
   const total = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0);
   function reset() { setClienteId(""); setFecha(today()); setItems([]); setEditId(null); setArchivo(null); setNota(""); }
   function addItem() { const a = stock.find(x => String(x.id) === String(aberturaId)); if (!a) return; setItems([...items, { abertura_id: a.id, abertura: a, cantidad: Number(cantidad), precio_unitario: Number(precio) }]); setAberturaId(""); setCantidad(1); setPrecio(0); }
@@ -355,8 +387,8 @@ function Pedidos({ clientes, stock, pedidos, reload }) {
     } catch (e) { alert(e.message); }
   }
   async function del(id) { if (confirm("Eliminar pedido? Tambien se eliminan sus items y pagos asociados.")) { const r = await supabase.from("pedidos").delete().eq("id", id); if (r.error) alert(r.error.message); reload(); } }
-  const rows = pedidos.map(p => ({ ...p, cliente: p.clientes?.razon_social, archivo: p.archivo_url ? (p.archivo_nombre || "Ver archivo") : "" }));
-  return <Section title="Pedidos"><div className="grid md:grid-cols-4 gap-3 mb-4"><Input placeholder="Filtrar cliente por nombre o Nro" value={q} onChange={e => setQ(e.target.value)} /><Select value={sort} onChange={e => setSort(e.target.value)}><option value="nro_cliente">Ordenar por Nro</option><option value="razon_social">Ordenar por Razon Social</option></Select><Select value={clienteId} onChange={e => setClienteId(e.target.value)}><option value="">Seleccionar cliente</option>{clientesFiltrados.map(c => <option key={c.id} value={c.id}>#{c.nro_cliente} - {c.razon_social}</option>)}</Select><Input type="date" value={fecha} onChange={e => setFecha(e.target.value)} /></div><div className="grid md:grid-cols-5 gap-3 mb-4"><Select value={aberturaId} onChange={e => setAberturaId(e.target.value)}><option value="">Seleccionar abertura</option>{stock.map(a => <option key={a.id} value={a.id}>#{a.nro_abertura} - {a.modelo} - {a.medida} - {a.madera} - {a.mano}</option>)}</Select><Input type="number" min="1" value={cantidad} onChange={e => setCantidad(e.target.value)} /><Input type="number" min="0" step="0.01" placeholder="Precio unitario" value={precio} onChange={e => setPrecio(e.target.value)} /><Button type="button" onClick={addItem}>Agregar modelo</Button><Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setArchivo(e.target.files?.[0] || null)} /></div><div className="mb-4"><TextArea rows="3" placeholder="Texto adicional del pedido. Ej: Tiene barral de 60cms" value={nota} onChange={e => setNota(e.target.value)} /></div><div className="rounded-xl bg-[#fff9d6] border border-[#f2c94c] p-4 mb-5"><h3 className="font-semibold mb-2">Pre-finalizacion {editId ? `(editando pedido #${editId})` : ""}</h3>{items.length === 0 ? <p className="text-slate-500">Todavia no agregaste aberturas.</p> : items.map((i, idx) => <div key={idx} className="flex justify-between border-b py-2"><span>{i.cantidad} x #{i.abertura?.nro_abertura} {i.abertura?.modelo} - {i.abertura?.mano} - {i.abertura?.madera} - {i.abertura?.medida}</span><span>{money(i.cantidad * i.precio_unitario)} <button className="ml-2 text-red-600" onClick={() => setItems(items.filter((_, j) => j !== idx))}>Quitar</button></span></div>)}<div className="text-right text-2xl font-bold mt-3">Total: {money(total)}</div><div className="flex justify-end gap-2 mt-3"><Button type="button" onClick={save} disabled={!clienteId || items.length === 0}>{editId ? "Guardar e imprimir" : "Finalizar e imprimir"}</Button>{editId && <Button type="button" className="bg-slate-500" onClick={reset}>Cancelar edicion</Button>}</div></div><Table rows={rows} cols={["id", "fecha", "cliente", "total", "archivo"]} onEdit={editPedido} onDelete={del} extra={(r) => <>{r.archivo_url && <button className="text-emerald-700" onClick={() => verAdjunto(r.archivo_url, r.archivo_nombre)}>Ver adjunto</button>}<button className="text-[#4b1f0e]" onClick={() => imprimirPedido({ pedidoId: r.id, cliente: r.clientes, fecha: r.fecha, items: (r.pedido_items || []).map(i => ({ abertura: i.stock_aberturas, cantidad: i.cantidad, precio_unitario: Number(i.precio_unitario) })), total: r.total, nota: r.nota })}>Imprimir pedido</button><button className="text-[#8a5a00]" onClick={() => imprimirRemitoTransito(r)}>Imprimir remito</button></>} /></Section>;
+  const rows = pedidos.map(p => ({ ...p, cliente: cleanText(p.clientes?.razon_social || ""), archivo: p.archivo_url ? cleanText(p.archivo_nombre || "Ver archivo") : "" }));
+  return <Section title="Pedidos"><div className="grid md:grid-cols-4 gap-3 mb-4"><Input placeholder="Filtrar cliente por nombre o Nro" value={q} onChange={e => setQ(e.target.value)} /><Select value={sort} onChange={e => setSort(e.target.value)}><option value="nro_cliente">Ordenar por Nro</option><option value="razon_social">Ordenar por Razon Social</option></Select><Select value={clienteId} onChange={e => setClienteId(e.target.value)}><option value="">Seleccionar cliente</option>{clientesFiltrados.map(c => <option key={c.id} value={c.id}>#{c.nro_cliente} - {cleanText(c.razon_social)}</option>)}</Select><Input type="date" value={fecha} onChange={e => setFecha(e.target.value)} /></div><div className="grid md:grid-cols-5 gap-3 mb-4"><Select value={aberturaId} onChange={e => setAberturaId(e.target.value)}><option value="">Seleccionar abertura</option>{stock.map(a => <option key={a.id} value={a.id}>#{a.nro_abertura} - {cleanText(a.modelo)} - {cleanText(a.medida)} - {cleanText(a.madera)} - {cleanText(a.mano)}</option>)}</Select><Input type="number" min="1" value={cantidad} onChange={e => setCantidad(e.target.value)} /><Input type="number" min="0" step="0.01" placeholder="Precio unitario" value={precio} onChange={e => setPrecio(e.target.value)} /><Button type="button" onClick={addItem}>Agregar modelo</Button><Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setArchivo(e.target.files?.[0] || null)} /></div><div className="mb-4"><TextArea rows="3" placeholder="Texto adicional del pedido. Ej: Tiene barral de 60cms" value={nota} onChange={e => setNota(e.target.value)} /></div><div className="rounded-xl bg-[#fff9d6] border border-[#f2c94c] p-4 mb-5"><h3 className="font-semibold mb-2">Pre-finalizacion {editId ? `(editando pedido #${editId})` : ""}</h3>{items.length === 0 ? <p className="text-slate-500">Todavia no agregaste aberturas.</p> : items.map((i, idx) => <div key={idx} className="flex justify-between border-b py-2"><span>{i.cantidad} x #{i.abertura?.nro_abertura} {cleanText(i.abertura?.modelo || "")} - {cleanText(i.abertura?.mano || "")} - {cleanText(i.abertura?.madera || "")} - {cleanText(i.abertura?.medida || "")}</span><span>{money(i.cantidad * i.precio_unitario)} <button className="ml-2 text-red-600" onClick={() => setItems(items.filter((_, j) => j !== idx))}>Quitar</button></span></div>)}<div className="text-right text-2xl font-bold mt-3">Total: {money(total)}</div><div className="flex justify-end gap-2 mt-3"><Button type="button" onClick={save} disabled={!clienteId || items.length === 0}>{editId ? "Guardar e imprimir" : "Finalizar e imprimir"}</Button>{editId && <Button type="button" className="bg-slate-500" onClick={reset}>Cancelar edicion</Button>}</div></div><Table rows={rows} cols={["id", "fecha", "cliente", "total", "archivo"]} onEdit={editPedido} onDelete={del} extra={(r) => <>{r.archivo_url && <button className="text-emerald-700" onClick={() => verAdjunto(r.archivo_url, r.archivo_nombre)}>Ver adjunto</button>}<button className="text-[#4b1f0e]" onClick={() => imprimirPedido({ pedidoId: r.id, cliente: r.clientes, fecha: r.fecha, items: (r.pedido_items || []).map(i => ({ abertura: i.stock_aberturas, cantidad: i.cantidad, precio_unitario: Number(i.precio_unitario) })), total: r.total, nota: r.nota })}>Imprimir pedido</button><button className="text-[#8a5a00]" onClick={() => imprimirRemitoTransito(r)}>Imprimir remito</button></>} /></Section>;
 }
 
 function Movimientos({ movimientos, proveedores, reload }) {
@@ -365,7 +397,7 @@ function Movimientos({ movimientos, proveedores, reload }) {
   function proveedorChange(v) { const p = proveedores.find(x => x.razon_social === v); setForm({ ...form, razon_social: v, cuit_cuil: p?.cuit_cuil || "", rubro: p?.rubro || "" }); }
   async function save(e) { e.preventDefault(); await supabase.from("proveedores_facturas").upsert({ razon_social: form.razon_social, cuit_cuil: form.cuit_cuil, rubro: form.rubro }, { onConflict: "razon_social" }); const r = await supabase.from("movimientos").insert({ ...form, importe: Number(form.importe) }); if (r.error) alert(r.error.message); setForm(empty); reload(); }
   async function del(id) { if (confirm("Eliminar movimiento?")) { await supabase.from("movimientos").delete().eq("id", id); reload(); } }
-  return <Section title="Movimientos / Facturas"><form onSubmit={save} className="grid md:grid-cols-4 gap-3 mb-5"><input list="proveedores" required placeholder="Razon Social" value={form.razon_social} onChange={e => proveedorChange(e.target.value)} className="w-full rounded-xl border border-[#e6c65a] px-3 py-2" /><datalist id="proveedores">{proveedores.map(p => <option key={p.id} value={p.razon_social} />)}</datalist><Input placeholder="CUIT/CUIL" value={form.cuit_cuil || ""} onChange={e => setForm({ ...form, cuit_cuil: e.target.value })} /><Input placeholder="Rubro" value={form.rubro || ""} onChange={e => setForm({ ...form, rubro: e.target.value })} /><Input type="date" required value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} /><Input required placeholder="Nro Factura" value={form.nro_factura} onChange={e => setForm({ ...form, nro_factura: e.target.value })} /><Input type="number" step="0.01" min="0" required placeholder="Importe" value={form.importe} onChange={e => setForm({ ...form, importe: e.target.value })} /><Button>Cargar factura</Button></form><Table rows={movimientos} cols={["fecha", "razon_social", "cuit_cuil", "rubro", "nro_factura", "importe"]} onDelete={del} /></Section>;
+  return <Section title="Movimientos / Facturas"><form onSubmit={save} className="grid md:grid-cols-4 gap-3 mb-5"><input list="proveedores" required placeholder="Razon Social" value={form.razon_social} onChange={e => proveedorChange(e.target.value)} className="w-full rounded-xl border border-[#e6c65a] px-3 py-2" /><datalist id="proveedores">{proveedores.map(p => <option key={p.id} value={cleanText(p.razon_social)} />)}</datalist><Input placeholder="CUIT/CUIL" value={form.cuit_cuil || ""} onChange={e => setForm({ ...form, cuit_cuil: e.target.value })} /><Input placeholder="Rubro" value={form.rubro || ""} onChange={e => setForm({ ...form, rubro: e.target.value })} /><Input type="date" required value={form.fecha} onChange={e => setForm({ ...form, fecha: e.target.value })} /><Input required placeholder="Nro Factura" value={form.nro_factura} onChange={e => setForm({ ...form, nro_factura: e.target.value })} /><Input type="number" step="0.01" min="0" required placeholder="Importe" value={form.importe} onChange={e => setForm({ ...form, importe: e.target.value })} /><Button>Cargar factura</Button></form><Table rows={movimientos} cols={["fecha", "razon_social", "cuit_cuil", "rubro", "nro_factura", "importe"]} onDelete={del} /></Section>;
 }
 
 function Pagos({ pagos, saldos, reload }) {
@@ -375,12 +407,12 @@ function Pagos({ pagos, saldos, reload }) {
   const [metodo, setMetodo] = useState("Efectivo");
   const saldoPedido = saldos.find(s => String(s.pedido_id) === String(pedidoId));
   async function save(e) { e.preventDefault(); const valor = Number(monto); if (saldoPedido && valor > Number(saldoPedido.saldo)) return alert("El pago no puede superar el saldo pendiente."); const r = await supabase.from("pagos").insert({ pedido_id: pedidoId, fecha, monto: valor, metodo }); if (r.error) alert(r.error.message); setMonto(""); reload(); }
-  return <Section title="Pagos"><form onSubmit={save} className="grid md:grid-cols-5 gap-3 mb-5"><Select required value={pedidoId} onChange={e => setPedidoId(e.target.value)}><option value="">Seleccionar pedido</option>{saldos.map(s => <option key={s.pedido_id} value={s.pedido_id}>Pedido #{s.pedido_id} - {s.razon_social} - Saldo {money(s.saldo)}</option>)}</Select><Input type="date" value={fecha} onChange={e => setFecha(e.target.value)} /><Input type="number" step="0.01" min="0" placeholder="Monto" value={monto} onChange={e => setMonto(e.target.value)} /><Select value={metodo} onChange={e => setMetodo(e.target.value)}><option>Efectivo</option><option>Transferencia</option></Select><Button>Cargar pago</Button></form>{saldoPedido && <div className="rounded-xl bg-[#fff9d6] border border-[#f2c94c] p-3 mb-4">Saldo actual del pedido: <b>{money(saldoPedido.saldo)}</b></div>}<Table rows={pagos.map(p => ({ ...p, cliente: p.pedidos?.clientes?.razon_social, pedido: p.pedido_id, monto: money(p.monto) }))} cols={["fecha", "pedido", "cliente", "monto", "metodo"]} /></Section>;
+  return <Section title="Pagos"><form onSubmit={save} className="grid md:grid-cols-5 gap-3 mb-5"><Select required value={pedidoId} onChange={e => setPedidoId(e.target.value)}><option value="">Seleccionar pedido</option>{saldos.map(s => <option key={s.pedido_id} value={s.pedido_id}>Pedido #{s.pedido_id} - {cleanText(s.razon_social)} - Saldo {money(s.saldo)}</option>)}</Select><Input type="date" value={fecha} onChange={e => setFecha(e.target.value)} /><Input type="number" step="0.01" min="0" placeholder="Monto" value={monto} onChange={e => setMonto(e.target.value)} /><Select value={metodo} onChange={e => setMetodo(e.target.value)}><option>Efectivo</option><option>Transferencia</option></Select><Button>Cargar pago</Button></form>{saldoPedido && <div className="rounded-xl bg-[#fff9d6] border border-[#f2c94c] p-3 mb-4">Saldo actual del pedido: <b>{money(saldoPedido.saldo)}</b></div>}<Table rows={pagos.map(p => ({ ...p, cliente: p.pedidos?.clientes?.razon_social, pedido: p.pedido_id, monto: money(p.monto) }))} cols={["fecha", "pedido", "cliente", "monto", "metodo"]} /></Section>;
 }
 
 function Saldos({ saldos, pagos }) {
   const [q, setQ] = useState("");
-  const list = saldos.filter(s => `${s.nro_cliente} ${s.razon_social}`.toLowerCase().includes(q.toLowerCase()));
+  const list = saldos.filter(s => cleanText(`${s.nro_cliente} ${cleanText(s.razon_social)}`).toLowerCase().includes(q.toLowerCase()));
   const saldoTotal = list.reduce((acc, s) => acc + Number(s.saldo || 0), 0);
 
   return <Section title="Consulta de saldos">
@@ -394,7 +426,7 @@ function Saldos({ saldos, pagos }) {
         </thead>
         <tbody>
           {list.map(s => <tr key={s.pedido_id} className="border-b-2 border-[#e1d4a6] align-top">
-            <td>#{s.nro_cliente} · {s.razon_social}</td>
+            <td>#{s.nro_cliente} · {cleanText(s.razon_social)}</td>
             <td>#{s.pedido_id}</td>
             <td>{formatDate(s.fecha)}</td>
             <td>{money(s.total)}</td>
@@ -411,5 +443,5 @@ function Saldos({ saldos, pagos }) {
   </Section>;
 }
 function Table({ rows, cols, onEdit, onDelete, extra }) {
-  return <div className="overflow-auto mt-4"><table className="w-full text-sm"><thead><tr className="text-left border-b">{cols.map(c => <th key={c} className="py-2 pr-3 capitalize">{c.replaceAll("_", " ")}</th>)}{(onEdit || onDelete || extra) && <th>Acciones</th>}</tr></thead><tbody>{rows.map(r => <tr key={r.id} className="border-b hover:bg-[#fff4b8]">{cols.map(c => <td key={c} className="py-2 pr-3">{c.includes("importe") || c === "total" ? money(r[c]) : c === "fecha" ? formatDate(r[c]) : String(r[c] ?? "")}</td>)}{(onEdit || onDelete || extra) && <td className="space-x-3 whitespace-nowrap">{onEdit && <button className="text-blue-700" onClick={() => onEdit(r)}>Editar</button>}{onDelete && <button className="text-red-700" onClick={() => onDelete(r.id)}>Eliminar</button>}{extra && extra(r)}</td>}</tr>)}</tbody></table></div>;
+  return <div className="overflow-auto mt-4"><table className="w-full text-sm"><thead><tr className="text-left border-b">{cols.map(c => <th key={c} className="py-2 pr-3 capitalize">{cleanText(c.replaceAll("_", " "))}</th>)}{(onEdit || onDelete || extra) && <th>Acciones</th>}</tr></thead><tbody>{rows.map(r => <tr key={r.id} className="border-b hover:bg-[#fff4b8]">{cols.map(c => <td key={c} className="py-2 pr-3">{c.includes("importe") || c === "total" ? money(r[c]) : c === "fecha" ? formatDate(r[c]) : cleanText(r[c] ?? "")}</td>)}{(onEdit || onDelete || extra) && <td className="space-x-3 whitespace-nowrap">{onEdit && <button className="text-blue-700" onClick={() => onEdit(r)}>Editar</button>}{onDelete && <button className="text-red-700" onClick={() => onDelete(r.id)}>Eliminar</button>}{extra && extra(r)}</td>}</tr>)}</tbody></table></div>;
 }
