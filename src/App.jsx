@@ -495,8 +495,13 @@ function Pagos({ pagos, saldos, reload }) {
 
 function Saldos({ saldos, pagos }) {
   const [q, setQ] = useState("");
+  const [soloPendientes, setSoloPendientes] = useState(false);
   const [sort, setSort] = useState({ key: "cliente", dir: "asc" });
-  const filtered = saldos.filter(s => cleanText(`${s.nro_cliente} ${s.razon_social}`).toLowerCase().includes(q.toLowerCase()));
+  const filtered = saldos.filter(s => {
+    const matchesSearch = cleanText(`${s.nro_cliente} ${s.razon_social}`).toLowerCase().includes(q.toLowerCase());
+    const matchesPendiente = !soloPendientes || Number(s.saldo || 0) > 0;
+    return matchesSearch && matchesPendiente;
+  });
   const saldoTotal = filtered.reduce((acc, s) => acc + Number(s.saldo || 0), 0);
 
   function setSortColumn(key) {
@@ -508,6 +513,7 @@ function Saldos({ saldos, pagos }) {
 
   function sortValue(row, key) {
     if (key === "cliente") return cleanText(row.razon_social || "");
+    if (key === "nro_cliente") return Number(row.nro_cliente || 0);
     if (key === "pedido") return Number(row.pedido_id || 0);
     if (["total", "pagado", "saldo"].includes(key)) return Number(row[key] || 0);
     if (key === "pagos") return pagos.filter(p => p.pedido_id === row.pedido_id).map(p => `${p.fecha} ${p.monto} ${p.metodo}`).join(" ");
@@ -527,12 +533,19 @@ function Saldos({ saldos, pagos }) {
   const headerClass = "py-1 pr-3 cursor-pointer select-none hover:text-[#8a5a00]";
 
   return <Section title="Consulta de saldos">
-    <Input placeholder="Filtrar cliente" value={q} onChange={e => setQ(e.target.value)} />
+    <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+      <Input placeholder="Filtrar cliente" value={q} onChange={e => setQ(e.target.value)} />
+      <label className="flex items-center gap-2 text-sm font-semibold text-[#4b1f0e]">
+        <input type="checkbox" checked={soloPendientes} onChange={e => setSoloPendientes(e.target.checked)} className="h-4 w-4 accent-[#8a5a00]" />
+        Solo saldos pendientes
+      </label>
+    </div>
     <div className="overflow-auto mt-4">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left border-b-2 border-[#c7a43a]">
             <th className={headerClass} onClick={() => setSortColumn("cliente")}>Cliente{sortMark("cliente")}</th>
+            <th className={headerClass} onClick={() => setSortColumn("nro_cliente")}>Nro cliente{sortMark("nro_cliente")}</th>
             <th className={headerClass} onClick={() => setSortColumn("pedido")}>Pedido{sortMark("pedido")}</th>
             <th className={headerClass} onClick={() => setSortColumn("fecha")}>Fecha{sortMark("fecha")}</th>
             <th className={headerClass} onClick={() => setSortColumn("total")}>Total{sortMark("total")}</th>
@@ -543,7 +556,8 @@ function Saldos({ saldos, pagos }) {
         </thead>
         <tbody>
           {list.map(s => <tr key={s.pedido_id} className="border-b-2 border-[#e1d4a6] align-top">
-            <td>{cleanText(s.razon_social)} - #{s.nro_cliente}</td>
+            <td>{cleanText(s.razon_social)}</td>
+            <td>C - {s.nro_cliente}</td>
             <td>#{s.pedido_id}</td>
             <td>{formatDate(s.fecha)}</td>
             <td>{money(s.total)}</td>
